@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { IPost } from '@app/models/IPost';
 import { PostService } from '@app/services/post.service';
-import { Subscription } from 'rxjs';
+import { interval, Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-posts',
@@ -20,21 +20,39 @@ import { Subscription } from 'rxjs';
 })
 export class PostsComponent implements OnInit, OnDestroy {
   public posts: IPost[] = [];
-  private postsSubscription!: Subscription;
+  private unsubscribe$ = new Subject<void>();
 
   private readonly postService = inject(PostService);
   private readonly cdr = inject(ChangeDetectorRef);
 
   ngOnInit(): void {
-    this.postsSubscription = this.postService.getPostsWithCategory().subscribe({
-      next: (data) => {
-        this.posts = data || [];
-        this.cdr.detectChanges();
-      },
-    });
+    interval(1000)
+      .pipe(takeUntil(this.unsubscribe$))
+      .subscribe({
+        next: (data) => {
+          console.log(data);
+        },
+        error: (err) => {
+          console.log(err);
+        },
+        complete: () => {
+          console.log('complete interval');
+        },
+      });
+
+    this.postService
+      .getPostsWithCategory()
+      .pipe(takeUntil(this.unsubscribe$))
+      .subscribe({
+        next: (data) => {
+          this.posts = data || [];
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   ngOnDestroy(): void {
-    this.postsSubscription && this.postsSubscription.unsubscribe();
+    this.unsubscribe$.next();
+    this.unsubscribe$.complete();
   }
 }
